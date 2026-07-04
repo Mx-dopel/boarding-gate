@@ -58,10 +58,18 @@
     background: none; border: none; padding: 0; cursor: pointer;
   }
   #flipBtn:active { transform: scale(.93); }
-  #flipBtn img {
-    height: 140px; display: block;
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .35));
+  #flipBtn img { height: 182px; display: block; }
+
+  /* 오른쪽 아래 전체 화면 버튼 */
+  #fsBtn {
+    position: fixed; bottom: 26px; right: 26px; z-index: 40;
+    width: 66px; height: 66px; border-radius: 50%;
+    border: 4px solid #38bdf8;
+    background: rgba(15, 23, 42, .65); color: white;
+    font-size: 30px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
   }
+  #fsBtn:active { transform: scale(.9); }
 
   /* 게이트 화면 하단 UI (테두리에 가리지 않게 위로 올림) */
   #hud {
@@ -122,6 +130,9 @@
 
 <!-- urinuri 버튼: 전면/후면 카메라 전환 -->
 <button id="flipBtn" class="hidden"><img src="./urinuri.png" alt="카메라 전환"></button>
+
+<!-- 전체 화면 버튼 -->
+<button id="fsBtn" title="전체 화면">⛶</button>
 
 <!-- 게이트 작동 중 하단 UI -->
 <div id="hud" class="hidden">
@@ -281,6 +292,19 @@ $("flipBtn").addEventListener("click", async () => {
   }
   $("loadingScreen").classList.add("hidden");
   switching = false;
+});
+
+// ---------- 전체 화면 버튼 ----------
+$("fsBtn").addEventListener("click", () => {
+  const inFs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (inFs) {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  } else {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  }
 });
 
 // ---------- 시작 ----------
