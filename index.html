@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>✈️ 비행기 탑승 게이트</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: "Malgun Gothic", sans-serif; background: #0f172a; }
+
+  /* 카메라 화면(a-scene)은 MindAR가 알아서 채움 */
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 24px;
+  }
+  .hidden { display: none !important; }
+
+  #startScreen { background: linear-gradient(160deg, #1d4ed8, #0ea5e9); color: white; }
+  #startScreen h1 { font-size: 44px; margin-bottom: 12px; }
+  #startScreen p  { font-size: 20px; opacity: .9; margin-bottom: 40px; }
+  #startScreen button {
+    font-size: 30px; padding: 22px 60px; border: none; border-radius: 60px;
+    background: #facc15; color: #1e293b; font-weight: bold; cursor: pointer;
+    box-shadow: 0 8px 0 #ca8a04;
+  }
+  #startScreen button:active { transform: translateY(4px); box-shadow: 0 4px 0 #ca8a04; }
+
+  #setupScreen { background: #1e293b; color: #e2e8f0; }
+  #setupScreen h1 { font-size: 32px; margin-bottom: 20px; }
+  #setupScreen ol { text-align: left; font-size: 19px; line-height: 1.9; max-width: 560px; }
+
+  #loadingScreen { background: rgba(15, 23, 42, .85); color: white; font-size: 26px; }
+
+  /* 게이트 화면 하단 UI */
+  #hud {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding: 18px; pointer-events: none;
+  }
+  #statusBar {
+    background: rgba(15, 23, 42, .75); color: white;
+    font-size: 24px; padding: 12px 30px; border-radius: 40px;
+  }
+  #checkBtn {
+    pointer-events: auto;
+    font-size: 26px; padding: 18px 46px; border: none; border-radius: 50px;
+    background: #22c55e; color: white; font-weight: bold; cursor: pointer;
+    box-shadow: 0 6px 0 #15803d;
+  }
+  #checkBtn:active { transform: translateY(3px); box-shadow: 0 3px 0 #15803d; }
+  #checkBtn:disabled { opacity: .5; }
+
+  /* 결과 화면 */
+  #resultOverlay { z-index: 30; color: white; }
+  #resultOverlay .emoji { font-size: 130px; margin-bottom: 20px; }
+  #resultOverlay .msg   { font-size: 46px; font-weight: bold; }
+  #resultOverlay.ok   { background: rgba(22, 163, 74, .92); }
+  #resultOverlay.fail { background: rgba(220, 38, 38, .92); }
+
+  @keyframes pop { 0% { transform: scale(.5); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  #resultOverlay .emoji { animation: pop .5s ease-out; }
+</style>
+</head>
+<body>
+
+<!-- targets.mind 파일이 없을 때 보여주는 안내 화면 -->
+<div id="setupScreen" class="overlay hidden">
+  <h1>🎫 준비가 조금 더 필요해요</h1>
+  <ol>
+    <li>표(탑승권)로 쓸 그림 파일을 준비하세요.</li>
+    <li>인터넷에서 <b>MindAR Image Compiler</b> 페이지를 열어 그림을 올리고,<br>
+        <b>targets.mind</b> 파일을 내려받으세요.</li>
+    <li>내려받은 <b>targets.mind</b> 파일을 이 <b>index.html</b>과<br>같은 폴더에 넣고 새로고침하세요.</li>
+  </ol>
+</div>
+
+<!-- 시작 화면 (버튼을 눌러야 카메라/음성 사용이 허용됨) -->
+<div id="startScreen" class="overlay">
+  <h1>✈️ 비행기 탑승 게이트</h1>
+  <p>탑승권을 검사하는 게이트를 엽니다</p>
+  <button id="openGateBtn">게이트 열기</button>
+</div>
+
+<div id="loadingScreen" class="overlay hidden">📷 카메라를 켜는 중...</div>
+
+<!-- 게이트 작동 중 하단 UI -->
+<div id="hud" class="hidden">
+  <div id="statusBar">🎫 탑승권을 보여주세요</div>
+  <button id="checkBtn">🔍 탑승권 검사</button>
+</div>
+
+<!-- 결과(성공/실패) 화면 -->
+<div id="resultOverlay" class="overlay hidden">
+  <div class="emoji"></div>
+  <div class="msg"></div>
+</div>
+
+<!-- MindAR 장면: 표가 인식되면 표 위에 초록 네모가 겹쳐 보임 -->
+<a-scene id="arScene"
+  mindar-image="imageTargetSrc: ./targets.mind; autoStart: no; uiLoading: no; uiScanning: no; uiError: no; warmupTolerance: 2; missTolerance: 8"
+  color-space="sRGB" renderer="colorManagement: true"
+  vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  <a-entity id="ticketTarget" mindar-image-target="targetIndex: 0">
+    <a-plane color="#4ade80" opacity="0.4" width="1" height="0.6"></a-plane>
+  </a-entity>
+</a-scene>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+let ticketVisible = false;   // 지금 카메라에 표가 보이는가
+let busy = false;            // 검사 중이거나 결과 화면 표시 중인가
+let cooldownUntil = 0;       // 연속 인식 방지용 쉬는 시간
+
+// ---------- 소리 ----------
+let audioCtx = null;
+function tone(freq, start, dur, type = "sine", vol = 0.25) {
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, audioCtx.currentTime + start);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + start + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(audioCtx.currentTime + start);
+  o.stop(audioCtx.currentTime + start + dur);
+}
+function dingSound() { tone(660, 0, .18); tone(880, .18, .35); }
+function buzzSound() { tone(180, 0, .4, "square", .15); }
+
+// ---------- 음성 ----------
+function speak(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ko-KR";
+    u.rate = 0.95;
+    const ko = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith("ko"));
+    if (ko) u.voice = ko;
+    speechSynthesis.speak(u);
+  } catch (e) { /* 음성 미지원 기기에서도 앱은 계속 동작 */ }
+}
+// 일부 브라우저는 목소리 목록을 늦게 불러오므로 미리 요청해 둠
+speechSynthesis.getVoices();
+speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+
+// ---------- 결과 표시 ----------
+function showResult(ok) {
+  busy = true;
+  const ov = $("resultOverlay");
+  ov.className = "overlay " + (ok ? "ok" : "fail");
+  ov.querySelector(".emoji").textContent = ok ? "✅" : "❌";
+  ov.querySelector(".msg").textContent = ok ? "인증되었습니다" : "다시 인증해주십시오";
+  if (ok) { dingSound(); speak("인증되었습니다. 즐거운 여행 되세요."); }
+  else    { buzzSound(); speak("다시 인증해주십시오."); }
+  setTimeout(() => {
+    ov.classList.add("hidden");
+    $("statusBar").textContent = "🎫 탑승권을 보여주세요";
+    busy = false;
+    cooldownUntil = Date.now() + 3000;
+  }, 3500);
+}
+
+// ---------- 표 인식 이벤트 ----------
+const target = $("ticketTarget");
+target.addEventListener("targetFound", () => {
+  ticketVisible = true;
+  // 검사 버튼을 누르지 않아도, 표가 보이면 바로 인증
+  if (!busy && Date.now() > cooldownUntil) showResult(true);
+});
+target.addEventListener("targetLost", () => { ticketVisible = false; });
+
+// ---------- 검사 버튼: 6초 안에 표가 안 보이면 실패 ----------
+$("checkBtn").addEventListener("click", () => {
+  if (busy) return;
+  busy = true;
+  $("checkBtn").disabled = true;
+  speak("탑승권을 보여주세요.");
+  let remain = 6;
+  $("statusBar").textContent = "🔍 검사 중... " + remain + "초";
+  const timer = setInterval(() => {
+    if (ticketVisible) {
+      clearInterval(timer);
+      $("checkBtn").disabled = false;
+      showResult(true);
+      return;
+    }
+    remain -= 1;
+    $("statusBar").textContent = "🔍 검사 중... " + remain + "초";
+    if (remain <= 0) {
+      clearInterval(timer);
+      $("checkBtn").disabled = false;
+      showResult(false);
+    }
+  }, 1000);
+});
+
+// ---------- 시작 ----------
+$("openGateBtn").addEventListener("click", async () => {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  speak(" "); // 사용자가 버튼을 누른 시점에 음성 기능을 미리 깨워 둠
+
+  // targets.mind(표 그림 인식 데이터)가 있는지 먼저 확인
+  // (일부 서버는 없는 파일도 HTML 페이지로 답하므로, 내용 종류까지 확인)
+  try {
+    const res = await fetch("./targets.mind", { method: "HEAD" });
+    const type = (res.headers.get("content-type") || "").toLowerCase();
+    if (!res.ok || type.includes("text/html")) throw new Error();
+  } catch (e) {
+    $("startScreen").classList.add("hidden");
+    $("setupScreen").classList.remove("hidden");
+    return;
+  }
+
+  $("startScreen").classList.add("hidden");
+  $("loadingScreen").classList.remove("hidden");
+
+  const sceneEl = $("arScene");
+  sceneEl.addEventListener("arReady", () => {
+    $("loadingScreen").classList.add("hidden");
+    $("hud").classList.remove("hidden");
+    speak("게이트가 열렸습니다. 탑승권을 보여주세요.");
+  });
+  sceneEl.addEventListener("arError", () => {
+    $("loadingScreen").textContent = "⚠️ 카메라를 켤 수 없습니다. 카메라 권한을 허용했는지 확인해주세요.";
+  });
+  sceneEl.systems["mindar-image-system"].start();
+});
+</script>
+</body>
+</html>
