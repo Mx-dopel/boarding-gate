@@ -226,6 +226,10 @@ async function startCamera() {
   video.srcObject = stream;
   await new Promise(res => { video.onloadedmetadata = res; });
   await video.play();
+  // 중요: 인식기는 영상의 width/height "속성"을 보고 화면을 읽으므로 꼭 실제 크기를 적어줘야 함
+  // (이게 없으면 0x0 빈 화면을 인식기에 넣게 되어 인식이 전혀 안 됨)
+  video.width = video.videoWidth;
+  video.height = video.videoHeight;
   video.classList.toggle("mirror", facing === "user");
 
   const { Controller } = window.MINDAR.IMAGE;
