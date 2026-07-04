@@ -168,15 +168,10 @@ function speak(text) {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "ko-KR";
     u.rate = 0.95;
-    const ko = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith("ko"));
-    if (ko) u.voice = ko;
+    // 목소리는 직접 고르지 않고 기기의 기본 한국어 목소리를 사용
     speechSynthesis.speak(u);
   } catch (e) { /* 음성 미지원 기기에서도 앱은 계속 동작 */ }
 }
-try {
-  speechSynthesis.getVoices();
-  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
-} catch (e) {}
 
 // ---------- 결과 표시 ----------
 function showResult(ok) {
